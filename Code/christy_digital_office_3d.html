@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Christy's Digital Office 3D</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Three.js and Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- GSAP for Smooth Camera Tweening -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0d0f12;
+            color: #e2e8f0;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Custom Glassmorphism */
+        .glass-panel {
+            background: rgba(18, 22, 29, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.3s ease;
+        }
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-2px);
+        }
+        /* Pulsing Glow Animation */
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+        }
+        .pulse-glow {
+            animation: pulseGlow 2s infinite;
+        }
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 overflow-hidden relative">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="w-full h-full absolute inset-0 z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- HEADER / NAVIGATION OVERLAY -->
+    <header class="absolute top-0 left-0 right-0 z-20 p-4 md:p-6 flex justify-between items-center pointer-events-none">
+        <div class="flex items-center space-x-3 pointer-events-auto">
+            <div class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></div>
+            <h1 class="font-bold text-lg tracking-wider text-slate-100 uppercase">CHRISTY'S DIGITAL OFFICE</h1>
+        </div>
+        
+        <div class="hidden md:flex items-center space-x-2 text-xs font-mono tracking-widest text-slate-400 pointer-events-auto bg-slate-900/60 px-4 py-2 rounded-full border border-slate-800">
+            <span>EXPLORE MY JOURNEY</span>
+        </div>
+
+        <div class="flex items-center space-x-4 font-mono text-sm text-slate-300 pointer-events-auto">
+            <span class="bg-slate-900/80 px-3 py-1.5 rounded-md border border-slate-800 text-xs text-amber-400 font-semibold" id="time-display">2026 • 2029 | 18:18:09</span>
+            <button id="sound-toggle" class="p-2 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 transition">
+                <i class="fa-solid fa-volume-high" id="sound-icon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- KNOCK / ENTRANCE OVERLAY SCREEN -->
+    <div id="entrance-overlay" class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md transition-opacity duration-1000">
+        <div class="text-center max-w-lg px-6">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-indigo-500/20 border border-slate-700/50 flex items-center justify-center text-3xl text-amber-400 shadow-2xl">
+                <i class="fa-solid fa-door-closed"></i>
+            </div>
+            <h2 class="text-3xl md:text-4xl font-bold tracking-tight text-white mb-3">Executive Office Suite</h2>
+            <p class="text-slate-400 text-sm md:text-base mb-8 leading-relaxed">
+                You are outside Christy's office cabin. Knock on the door to request permission to enter and tour the interactive workspace.
+            </p>
+            <button id="knock-btn" class="glass-btn px-8 py-4 rounded-xl text-base font-semibold text-amber-300 flex items-center justify-center space-x-3 mx-auto w-full max-w-xs cursor-pointer shadow-lg hover:shadow-amber-500/10">
+                <i class="fa-solid fa-hand-fist animate-bounce"></i>
+                <span>Knock on Door to Enter</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- LIVE CONVERSATION DIALOGUE BOX -->
+    <div id="dialogue-container" class="absolute top-20 left-1/2 transform -translate-x-1/2 z-20 w-11/12 max-w-2xl pointer-events-none transition-all duration-500 opacity-0 translate-y-[-10px]">
+        <div class="glass-panel p-4 md:p-5 rounded-2xl border border-amber-500/20 shadow-2xl relative">
+            <div class="flex items-start space-x-4">
+                <div id="speaker-avatar" class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white text-lg font-bold shrink-0 shadow-md">
+                    C
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between mb-1">
+                        <span id="speaker-name" class="font-semibold text-amber-400 text-sm uppercase tracking-wider">Christy (Host)</span>
+                        <span id="speaker-role" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">EXECUTIVE</span>
+                    </div>
+                    <p id="dialogue-text" class="text-slate-200 text-xs md:text-sm leading-relaxed min-h-[40px]">
+                        Welcome! Please feel free to look around my office.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTION INSTRUCTION / BOTTOM TOOLBAR -->
+    <div id="bottom-bar" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 w-11/12 max-w-lg pointer-events-auto transition-all duration-500">
+        <div class="glass-panel px-5 py-3 rounded-2xl flex items-center justify-between border border-slate-800">
+            <div class="flex items-center space-x-3">
+                <div class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></div>
+                <div>
+                    <div class="text-xs font-bold text-slate-200 uppercase tracking-wider">EXPLORE THE OFFICE</div>
+                    <div class="text-[11px] text-slate-400">Click on any object in 3D to inspect</div>
+                </div>
+            </div>
+            <button id="reset-cam-btn" class="glass-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 flex items-center space-x-2">
+                <i class="fa-solid fa-arrows-to-eye"></i>
+                <span>Reset View</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL POPUP FOR DETAILED ZONE INSPECTION -->
+    <div id="info-modal" class="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-panel w-11/12 max-w-2xl max-h-[85vh] rounded-3xl p-6 md:p-8 flex flex-col border border-slate-700/50 shadow-2xl transform scale-95 transition-transform duration-300 overflow-hidden relative" id="modal-content-box">
+            
+            <!-- Close Button -->
+            <button id="close-modal-btn" class="absolute top-6 right-6 w-10 h-10 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition border border-slate-700 cursor-pointer z-10">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <!-- Modal Header -->
+            <div class="flex items-center space-x-4 mb-6">
+                <div id="modal-icon" class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-2xl shrink-0">
+                    <i class="fa-solid fa-desktop"></i>
+                </div>
+                <div>
+                    <span id="modal-category" class="text-xs font-mono tracking-widest text-amber-400 uppercase">WORKSTATION</span>
+                    <h3 id="modal-title" class="text-2xl font-bold text-white tracking-tight">Main Workstation Computer</h3>
+                </div>
+            </div>
+
+            <!-- Modal Body Content -->
+            <div id="modal-body" class="flex-1 overflow-y-auto pr-2 text-slate-300 text-sm leading-relaxed space-y-4">
+                <!-- Dynamic Content Injected Here -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="mt-6 pt-4 border-t border-slate-800/80 flex justify-between items-center text-xs text-slate-400 font-mono">
+                <span>PRESS ESC TO CLOSE</span>
+                <button id="modal-action-btn" class="glass-btn px-4 py-2 rounded-xl text-amber-300 font-sans font-medium flex items-center space-x-2">
+                    <span>Acknowledge</span>
+                    <i class="fa-solid fa-check"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN THREE.JS SCRIPT LOGIC -->
+    <script>
+        // --- CONSTANTS & CONFIGURATION ---
+        const ZONES = {
+            DESK: 'desk',
+            WORKSTATION: 'workstation',
+            TROPHY: 'trophy',
+            NOTICE: 'notice',
+            BOOKSHELF: 'bookshelf',
+            FILING: 'filing',
+            MEETING: 'meeting'
+        };
+
+        const CAMERA_VIEWS = {
+            OVERVIEW: { pos: new THREE.Vector3(0, 5, 11), target: new THREE.Vector3(0, 1.5, 0) },
+            ENTRANCE: { pos: new THREE.Vector3(6.5, 2.5, 7.5), target: new THREE.Vector3(3.5, 2, 3) },
+            [ZONES.DESK]: { pos: new THREE.Vector3(-1.2, 2.8, 3.2), target: new THREE.Vector3(-1.5, 1.3, -0.2) },
+            [ZONES.WORKSTATION]: { pos: new THREE.Vector3(2.8, 2.6, 2.8), target: new THREE.Vector3(3.5, 1.5, -0.2) },
+            [ZONES.TROPHY]: { pos: new THREE.Vector3(3.2, 3.5, 2.0), target: new THREE.Vector3(4.2, 3.2, -3.2) },
+            [ZONES.BOOKSHELF]: { pos: new THREE.Vector3(0.5, 3.0, 1.5), target: new THREE.Vector3(0.8, 2.8, -3.4) },
+            [ZONES.NOTICE]: { pos: new THREE.Vector3(-2.8, 2.8, 1.5), target: new THREE.Vector3(-2.8, 2.8, -3.4) },
+            [ZONES.FILING]: { pos: new THREE.Vector3(5.0, 2.2, 1.2), target: new THREE.Vector3(6.2, 1.8, -1.8) },
+            [ZONES.MEETING]: { pos: new THREE.Vector3(-5.2, 3.2, 1.8), target: new THREE.Vector3(-6.0, 2.0, -2.5) }
+        };
+
+        // --- ZONE DATA CONTENT ---
+        const ZONE_DATA = {
+            [ZONES.DESK]: {
+                title: "Executive Main Desk",
+                category: "STRATEGY & LEADERSHIP",
+                icon: "fa-briefcase",
+                speaker: "Christy (Host)",
+                dialogue: "This is my central workspace where I handle daily operations, executive communications, high-level project management, and strategy.",
+                content: `
+                    <p class="mb-4">From this executive desk, I oversee technical roadmap developments, manage resource allocations, and conduct strategic planning for ongoing software solutions.</p>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                            <div class="text-xs text-amber-400 font-mono">ROLE</div>
+                            <div class="font-bold text-white text-sm">Lead Technical Architect</div>
+                        </div>
+                        <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                            <div class="text-xs text-amber-400 font-mono">CORE FOCUS</div>
+                            <div class="font-bold text-white text-sm">3D Web / AI Integration</div>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-white mb-2">Key Responsibilities:</h4>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300 text-xs">
+                        <li>Architecture design for web & interactive applications</li>
+                        <li>Directing cross-functional engineering teams</li>
+                        <li>Evaluating novel web tech stacks (Three.js, WebGL, AI API interfaces)</li>
+                    </ul>
+                `
+            },
+            [ZONES.WORKSTATION]: {
+                title: "High-Performance Workstation",
+                category: "DEVELOPMENT & CODING",
+                icon: "fa-code",
+                speaker: "Christy (Host)",
+                dialogue: "Here is where hands-on engineering happens. Dual high-refresh monitors and liquid-cooled PC tower power full-stack software development.",
+                content: `
+                    <p class="mb-3">This dedicated technical workstation is optimized for heavy 3D asset rendering, local model inference, and fast full-stack builds.</p>
+                    <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 font-mono text-xs text-emerald-400 mb-4">
+                        <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
+                            <span class="text-slate-400">Current Active Build</span>
+                            <span class="text-xs bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded">v3.4.0 Live</span>
+                        </div>
+                        <code>
+                            &gt; Three.js Render Pipeline: Active<br/>
+                            &gt; WebGL2 Context: Hardware Accelerated<br/>
+                            &gt; Frame Latency: 16.6ms (60 FPS)<br/>
+                            &gt; Active Stack: JavaScript, React, Three.js, WebAudio API
+                        </code>
+                    </div>
+                `
+            },
+            [ZONES.TROPHY]: {
+                title: "Trophy & Achievement Cabinet",
+                category: "HONORS & MILESTONES",
+                icon: "fa-trophy",
+                speaker: "Christy (Host)",
+                dialogue: "These awards and trophies represent years of innovation, successful product launches, and top client satisfaction metrics.",
+                content: `
+                    <div class="space-y-3">
+                        <div class="p-3 bg-slate-900/80 rounded-xl border border-amber-500/20 flex items-center space-x-3">
+                            <div class="text-2xl text-amber-400"><i class="fa-solid fa-award"></i></div>
+                            <div>
+                                <div class="font-bold text-white text-sm">Best Digital Innovation Award (2028)</div>
+                                <div class="text-xs text-slate-400">Awarded for breakthrough interactive 3D Web experience design.</div>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center space-x-3">
+                            <div class="text-2xl text-amber-400"><i class="fa-solid fa-medal"></i></div>
+                            <div>
+                                <div class="font-bold text-white text-sm">Technical Excellence Honor</div>
+                                <div class="text-xs text-slate-400">Recognized for architecture optimization and WebGL rendering speed.</div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            [ZONES.NOTICE]: {
+                title: "Strategic Pinboard & Roadmap",
+                category: "ROADMAP & NOTES",
+                icon: "fa-note-sticky",
+                speaker: "Christy (Host)",
+                dialogue: "This board pins active roadmap tasks, architecture diagrams, sprint goals, and quick visual brainstorm notes.",
+                content: `
+                    <p class="mb-3">Pinned items highlight immediate priority goals for the 2026–2029 product development cycle:</p>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-200 rounded-lg">
+                            <div class="font-bold mb-1">🎯 Q3 Goal</div>
+                            <div>Upgrade WebGL render engine to custom shaders.</div>
+                        </div>
+                        <div class="p-3 bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 rounded-lg">
+                            <div class="font-bold mb-1">💡 Research</div>
+                            <div>AI Live voice agent synthesis & WebSockets.</div>
+                        </div>
+                    </div>
+                `
+            },
+            [ZONES.BOOKSHELF]: {
+                title: "Technical Bookshelf & Reference Library",
+                category: "KNOWLEDGE BASE",
+                icon: "fa-book",
+                speaker: "Christy (Host)",
+                dialogue: "Continuous learning is vital. My bookshelf stores technical manuals, design systems, algorithms, and leadership guides.",
+                content: `
+                    <p class="mb-3">Key reference literature currently on shelf:</p>
+                    <ul class="space-y-2 text-xs">
+                        <li class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex justify-between items-center">
+                            <span class="text-slate-200 font-semibold">Real-Time Rendering & WebGL Graphics</span>
+                            <span class="text-slate-500">Read</span>
+                        </li>
+                        <li class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex justify-between items-center">
+                            <span class="text-slate-200 font-semibold">Design Patterns & Distributed Systems</span>
+                            <span class="text-slate-500">Read</span>
+                        </li>
+                        <li class="p-2 bg-slate-900 rounded-lg border border-slate-800 flex justify-between items-center">
+                            <span class="text-slate-200 font-semibold">Clean Code & System Architecture</span>
+                            <span class="text-slate-500">Reference</span>
+                        </li>
+                    </ul>
+                `
+            },
+            [ZONES.FILING]: {
+                title: "Filing Cabinet & Documents",
+                category: "ARCHIVES",
+                icon: "fa-folder-open",
+                speaker: "Christy (Host)",
+                dialogue: "Here are stored case studies, verified client performance reports, and downloadable project documentation.",
+                content: `
+                    <p class="mb-3">Verified documentation folders available for review:</p>
+                    <div class="space-y-2 text-xs">
+                        <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-file-pdf text-red-400 text-base"></i>
+                                <span class="text-slate-200 font-medium">Enterprise_3D_Office_CaseStudy.pdf</span>
+                            </div>
+                            <button class="glass-btn px-2.5 py-1 rounded text-[11px] text-amber-300">View</button>
+                        </div>
+                        <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-file-code text-blue-400 text-base"></i>
+                                <span class="text-slate-200 font-medium">System_Architecture_Whitepaper.pdf</span>
+                            </div>
+                            <button class="glass-btn px-2.5 py-1 rounded text-[11px] text-amber-300">View</button>
+                        </div>
+                    </div>
+                `
+            },
+            [ZONES.MEETING]: {
+                title: "Glass Enclosed Meeting Room",
+                category: "COLLABORATION",
+                icon: "fa-users",
+                speaker: "Christy (Host)",
+                dialogue: "This soundproof glass meeting space hosts team syncs, strategic reviews, and collaborative brainstorming sessions.",
+                content: `
+                    <p class="mb-3">Equipped for video conferencing, live presentations, and dynamic strategy workshops with up to 6 attendees.</p>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-xs space-y-1">
+                        <div class="text-amber-400 font-bold mb-1"><i class="fa-solid fa-calendar-day mr-1"></i> Upcoming Session:</div>
+                        <div class="text-slate-200">System Architecture Sync & Q4 Roadmap Review</div>
+                    </div>
+                `
+            }
+        };
+
+        // --- AUDIO SYNTHESIZER (WEB AUDIO API) ---
+        class AudioController {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playKnock() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                // Double knock pattern
+                [0, 0.15].forEach(delay => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120, now + delay);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + delay + 0.1);
+                    
+                    gain.gain.setValueAtTime(0.8, now + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + delay + 0.1);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.start(now + delay);
+                    osc.stop(now + delay + 0.11);
+                });
+            }
+
+            playClick() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.05);
+                
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.06);
+            }
+
+            playTypeSound() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600 + Math.random() * 200, this.ctx.currentTime);
+                
+                gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.03);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.04);
+            }
+        }
+
+        const audio = new AudioController();
+
+        // --- GLOBAL APP STATE & THREE.JS VARIABLES ---
+        let container, scene, camera, renderer, controls;
+        let raycaster, mouse;
+        const interactiveObjects = [];
+        let hostMesh, visitorMesh, doorMesh;
+        let activeZone = null;
+
+        // --- INITIALIZATION ---
+        window.addEventListener('load', () => {
+            initThree();
+            buildRoomScene();
+            setupEventListeners();
+            animate();
+            updateLiveTime();
+            setInterval(updateLiveTime, 1000);
+        });
+
+        function updateLiveTime() {
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            document.getElementById('time-display').innerText = `2026 • 2029 | ${timeStr}`;
+        }
+
+        function initThree() {
+            container = document.getElementById('canvas-container');
+            
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b0e14);
+            scene.fog = new THREE.FogExp2(0x0b0e14, 0.035);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.copy(CAMERA_VIEWS.ENTRANCE.pos);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            container.appendChild(renderer.domElement);
+
+            // OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.copy(CAMERA_VIEWS.ENTRANCE.target);
+            controls.maxPolarAngle = Math.PI / 2 - 0.01; // Don't go under floor
+            controls.minDistance = 1;
+            controls.maxDistance = 20;
+
+            // Raycaster
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Lighting Setup
+            setupLighting();
+
+            // Window Resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function setupLighting() {
+            // Ambient soft warm fill
+            const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.8);
+            scene.add(ambientLight);
+
+            // Directional Light (Sunlight from big window)
+            const dirLight = new THREE.DirectionalLight(0xdbeafe, 1.2);
+            dirLight.position.set(-10, 8, -5);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.bias = -0.0001;
+            scene.add(dirLight);
+
+            // Warm interior ceiling lights
+            const warmCeilingSpot = new THREE.SpotLight(0xffeedd, 2.5);
+            warmCeilingSpot.position.set(0, 7, 0);
+            warmCeilingSpot.angle = Math.PI / 3;
+            warmCeilingSpot.penumbra = 0.8;
+            warmCeilingSpot.castShadow = true;
+            scene.add(warmCeilingSpot);
+
+            // Trophy Shelf Warm Glow Spotlights
+            const trophySpot = new THREE.PointLight(0xfbbf24, 2.0, 5);
+            trophySpot.position.set(4.2, 4.0, -3.0);
+            scene.add(trophySpot);
+
+            // Workstation RGB Blue Fan Glow
+            const pcGlow = new THREE.PointLight(0x3b82f6, 3.0, 3);
+            pcGlow.position.set(4.0, 0.8, -0.2);
+            scene.add(pcGlow);
+        }
+
+        // --- 3D PROCEDURAL ROOM & ASSET GENERATION ---
+        function buildRoomScene() {
+            // Materials
+            const woodFloorMat = new THREE.MeshStandardMaterial({ color: 0x3d271d, roughness: 0.4, metalness: 0.1 });
+            const darkWallMat = new THREE.MeshStandardMaterial({ color: 0x1e242d, roughness: 0.8 });
+            const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.25, roughness: 0.1, transmission: 0.9, thickness: 0.5 });
+            const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x241812, roughness: 0.5 });
+            const deskWoodMat = new THREE.MeshStandardMaterial({ color: 0xa36c4c, roughness: 0.3 });
+            const metalBlackMat = new THREE.MeshStandardMaterial({ color: 0x111318, roughness: 0.5, metalness: 0.8 });
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.2 });
+            const plantGreenMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
+
+            // 1. FLOOR
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 12), woodFloorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Floor Area Rug under Desk
+            const rug = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 }));
+            rug.rotation.x = -Math.PI / 2;
+            rug.position.set(-1.5, 0.01, -0.2);
+            rug.receiveShadow = true;
+            scene.add(rug);
+
+            // 2. WALLS
+            // Back Wall
+            const backWall = new THREE.Mesh(new THREE.BoxGeometry(16, 6, 0.2), darkWallMat);
+            backWall.position.set(0, 3, -4);
+            backWall.receiveShadow = true;
+            scene.add(backWall);
+
+            // Side Glass Window Wall (Left)
+            const windowFrame = new THREE.Mesh(new THREE.BoxGeometry(0.2, 6, 12), metalBlackMat);
+            windowFrame.position.set(-8, 3, 2);
+            scene.add(windowFrame);
+
+            // 3. ENTRANCE DOOR & FRONT WALL (Right Side)
+            const frontWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 6, 5), darkWallMat);
+            frontWall.position.set(7, 3, 3.5);
+            scene.add(frontWall);
+
+            // Door Frame & Swinging Door
+            const doorGroup = new THREE.Group();
+            doorGroup.position.set(7, 0, 1.0); // Pivot point at door hinge
+
+            doorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 4.8, 2.2), darkWoodMat);
+            doorMesh.position.set(0, 2.4, -1.1); // Shift origin to hinge
+            doorMesh.castShadow = true;
+            doorGroup.add(doorMesh);
+
+            // Handle
+            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3), goldMat);
+            handle.position.set(-0.1, 2.4, -1.9);
+            handle.rotation.z = Math.PI / 2;
+            doorGroup.add(handle);
+
+            scene.add(doorGroup);
+
+            // 4. MAIN EXECUTIVE DESK (ZONE: DESK)
+            const mainDeskGroup = new THREE.Group();
+            mainDeskGroup.position.set(-1.5, 0, -0.2);
+
+            const deskTop = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 1.6), deskWoodMat);
+            deskTop.position.y = 1.3;
+            deskTop.castShadow = true;
+            deskTop.receiveShadow = true;
+            mainDeskGroup.add(deskTop);
+
+            const deskBase1 = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.24, 1.4), darkWallMat);
+            deskBase1.position.set(-1.0, 0.62, 0);
+            deskBase1.castShadow = true;
+            mainDeskGroup.add(deskBase1);
+
+            const deskBase2 = deskBase1.clone();
+            deskBase2.position.set(1.0, 0.62, 0);
+            mainDeskGroup.add(deskBase2);
+
+            // Laptop on desk
+            const laptopBase = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.02, 0.3), metalBlackMat);
+            laptopBase.position.set(-0.2, 1.37, 0.1);
+            mainDeskGroup.add(laptopBase);
+
+            const laptopScreen = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.28, 0.01), metalBlackMat);
+            laptopScreen.position.set(-0.2, 1.5, -0.05);
+            laptopScreen.rotation.x = -0.2;
+            mainDeskGroup.add(laptopScreen);
+
+            // Coffee Mug
+            const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.12), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
+            mug.position.set(0.4, 1.42, 0.2);
+            mainDeskGroup.add(mug);
+
+            scene.add(mainDeskGroup);
+            registerInteractiveObject(deskTop, ZONES.DESK);
+
+            // 5. SECONDARY COMPUTER WORKSTATION (ZONE: WORKSTATION)
+            const pcDeskGroup = new THREE.Group();
+            pcDeskGroup.position.set(3.5, 0, -0.2);
+
+            const pcDeskTop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 1.2), deskWoodMat);
+            pcDeskTop.position.y = 1.3;
+            pcDeskTop.castShadow = true;
+            pcDeskGroup.add(pcDeskTop);
+
+            // Metal legs
+            const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.25), metalBlackMat);
+            leg1.position.set(-1.1, 0.625, 0.5);
+            pcDeskGroup.add(leg1);
+            const leg2 = leg1.clone(); leg2.position.set(1.1, 0.625, 0.5); pcDeskGroup.add(leg2);
+            const leg3 = leg1.clone(); leg3.position.set(-1.1, 0.625, -0.5); pcDeskGroup.add(leg3);
+            const leg4 = leg1.clone(); leg4.position.set(1.1, 0.625, -0.5); pcDeskGroup.add(leg4);
+
+            // Dual Monitors
+            const monitorStand = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.1), metalBlackMat);
+            monitorStand.position.set(0, 1.6, -0.3);
+            pcDeskGroup.add(monitorStand);
+
+            const monitorScreen1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.03), metalBlackMat);
+            monitorScreen1.position.set(-0.48, 1.8, -0.25);
+            monitorScreen1.rotation.y = 0.15;
+            pcDeskGroup.add(monitorScreen1);
+
+            const monitorScreen2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.03), metalBlackMat);
+            monitorScreen2.position.set(0.48, 1.8, -0.25);
+            monitorScreen2.rotation.y = -0.15;
+            pcDeskGroup.add(monitorScreen2);
+
+            // Glowing PC Tower under desk
+            const pcTower = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.7, 0.6), metalBlackMat);
+            pcTower.position.set(0.7, 0.35, 0);
+            pcDeskGroup.add(pcTower);
+
+            scene.add(pcDeskGroup);
+            registerInteractiveObject(pcDeskTop, ZONES.WORKSTATION);
+            registerInteractiveObject(monitorScreen1, ZONES.WORKSTATION);
+
+            // 6. TROPHY & ACHIEVEMENT CABINET (ZONE: TROPHY)
+            const trophyCabinetGroup = new THREE.Group();
+            trophyCabinetGroup.position.set(4.2, 0, -3.5);
+
+            const cabinetFrame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 5.0, 0.8), darkWoodMat);
+            cabinetFrame.position.y = 2.5;
+            cabinetFrame.castShadow = true;
+            trophyCabinetGroup.add(cabinetFrame);
+
+            // Illuminated Shelves & Trophies
+            for (let i = 1; i <= 4; i++) {
+                const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 0.7), darkWoodMat);
+                shelf.position.set(0, i * 1.1, 0);
+                trophyCabinetGroup.add(shelf);
+
+                // Add 3 Golden Trophies per shelf
+                for (let j = -1; j <= 1; j++) {
+                    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.04, 0.25), goldMat);
+                    cup.position.set(j * 0.6, i * 1.1 + 0.18, 0);
+                    cup.castShadow = true;
+                    trophyCabinetGroup.add(cup);
+                }
+            }
+
+            scene.add(trophyCabinetGroup);
+            registerInteractiveObject(cabinetFrame, ZONES.TROPHY);
+
+            // 7. LARGE BOOKSHELF (ZONE: BOOKSHELF)
+            const bookshelfGroup = new THREE.Group();
+            bookshelfGroup.position.set(0.8, 0, -3.6);
+
+            const shelfUnit = new THREE.Mesh(new THREE.BoxGeometry(2.8, 5.0, 0.6), darkWoodMat);
+            shelfUnit.position.y = 2.5;
+            shelfUnit.castShadow = true;
+            bookshelfGroup.add(shelfUnit);
+
+            // Fill with procedural multi-colored book spines
+            const bookColors = [0x94a3b8, 0xb91c1c, 0x1d4ed8, 0x047857, 0xb45309];
+            for (let level = 1; level <= 4; level++) {
+                const yPos = level * 1.1;
+                for (let b = -1.2; b <= 1.2; b += 0.12) {
+                    const bookHeight = 0.25 + Math.random() * 0.15;
+                    const bookMat = new THREE.MeshStandardMaterial({ color: bookColors[Math.floor(Math.random() * bookColors.length)] });
+                    const book = new THREE.Mesh(new THREE.BoxGeometry(0.09, bookHeight, 0.4), bookMat);
+                    book.position.set(b, yPos + bookHeight / 2, 0);
+                    bookshelfGroup.add(book);
+                }
+            }
+
+            scene.add(bookshelfGroup);
+            registerInteractiveObject(shelfUnit, ZONES.BOOKSHELF);
+
+            // 8. CORK NOTICE BOARD / PINBOARD (ZONE: NOTICE)
+            const noticeBoardGroup = new THREE.Group();
+            noticeBoardGroup.position.set(-2.8, 3.2, -3.85);
+
+            const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.8, 0.08), darkWoodMat);
+            noticeBoardGroup.add(boardFrame);
+
+            const corkSurface = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.6, 0.02), new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.9 }));
+            corkSurface.position.z = 0.04;
+            noticeBoardGroup.add(corkSurface);
+
+            // Pinned Notes
+            for (let k = 0; k < 6; k++) {
+                const note = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.35), new THREE.MeshStandardMaterial({ color: k % 2 === 0 ? 0xfef08a : 0xffedd5 }));
+                note.position.set((Math.random() - 0.5) * 1.8, (Math.random() - 0.5) * 1.2, 0.06);
+                noticeBoardGroup.add(note);
+            }
+
+            scene.add(noticeBoardGroup);
+            registerInteractiveObject(corkSurface, ZONES.NOTICE);
+
+            // 9. FILING CABINET (ZONE: FILING)
+            const filingGroup = new THREE.Group();
+            filingGroup.position.set(6.2, 0, -1.8);
+
+            const filingCabinet = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 1.0), darkWoodMat);
+            filingCabinet.position.y = 0.9;
+            filingCabinet.castShadow = true;
+            filingGroup.add(filingCabinet);
+
+            // Drawers
+            for (let d = 0; d < 3; d++) {
+                const drawerHandle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.05), metalBlackMat);
+                drawerHandle.position.set(-0.61, 0.4 + d * 0.5, 0);
+                filingGroup.add(drawerHandle);
+            }
+
+            scene.add(filingGroup);
+            registerInteractiveObject(filingCabinet, ZONES.FILING);
+
+            // 10. GLASS ENCLOSED MEETING ROOM (ZONE: MEETING)
+            const meetingGroup = new THREE.Group();
+            meetingGroup.position.set(-5.5, 0, -1.5);
+
+            // Glass Partition Walls
+            const wallGlass1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 5.0, 5.0), glassMat);
+            wallGlass1.position.set(2.0, 2.5, -1.0);
+            meetingGroup.add(wallGlass1);
+
+            // Meeting Table & Chairs
+            const table = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 2.8), deskWoodMat);
+            table.position.set(-0.5, 1.2, -1.0);
+            table.castShadow = true;
+            meetingGroup.add(table);
+
+            // Table Lamp
+            const pendantLamp = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.3, 16), metalBlackMat);
+            pendantLamp.position.set(-0.5, 3.8, -1.0);
+            meetingGroup.add(pendantLamp);
+
+            scene.add(meetingGroup);
+            registerInteractiveObject(wallGlass1, ZONES.MEETING);
+            registerInteractiveObject(table, ZONES.MEETING);
+
+            // 11. INDOOR GREEN PLANTS
+            createPlant(-7.2, 0, 4.0);
+            createPlant(2.2, 0, -3.2);
+
+            // 12. CHARACTERS / AVATARS
+            createAvatars();
+        }
+
+        function createPlant(x, y, z) {
+            const plantGroup = new THREE.Group();
+            plantGroup.position.set(x, y, z);
+
+            const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.25, 0.8), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
+            pot.position.y = 0.4;
+            pot.castShadow = true;
+            plantGroup.add(pot);
+
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5 });
+            for (let l = 0; l < 8; l++) {
+                const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), leafMat);
+                leaf.scale.set(0.8, 1.8, 0.3);
+                leaf.rotation.x = Math.PI / 4 + Math.random() * 0.2;
+                leaf.rotation.y = (l * Math.PI) / 4;
+                leaf.position.set(0, 0.9 + Math.random() * 0.3, 0);
+                plantGroup.add(leaf);
+            }
+            scene.add(plantGroup);
+        }
+
+        function createAvatars() {
+            // Avatar Materials
+            const suitMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xfbcfe8 });
+            const hairMat = new THREE.MeshStandardMaterial({ color: 0x451a03 });
+
+            // HOST AVATAR (Christy - Seated in Executive Chair behind Main Desk)
+            hostMesh = new THREE.Group();
+            hostMesh.position.set(-1.5, 0, -1.2); // Behind main desk
+
+            // Executive Chair
+            const chairBase = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.4, 0.7), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            chairBase.position.y = 1.1;
+            hostMesh.add(chairBase);
+
+            // Host Body (Stylized Figure)
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.7), suitMat);
+            torso.position.y = 1.4;
+            hostMesh.add(torso);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), skinMat);
+            head.position.y = 1.9;
+            hostMesh.add(head);
+
+            const hair = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), hairMat);
+            hair.position.set(0, 1.95, -0.03);
+            hostMesh.add(hair);
+
+            scene.add(hostMesh);
+
+            // VISITOR AVATAR (Superior - Standing near entrance)
+            visitorMesh = new THREE.Group();
+            visitorMesh.position.set(6.0, 0, 2.5);
+
+            const vTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.9), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            vTorso.position.y = 1.35;
+            visitorMesh.add(vTorso);
+
+            const vHead = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), skinMat);
+            vHead.position.y = 1.95;
+            visitorMesh.add(vHead);
+
+            scene.add(visitorMesh);
+        }
+
+        function registerInteractiveObject(mesh, zoneKey) {
+            mesh.userData = { zoneKey };
+            interactiveObjects.push(mesh);
+        }
+
+        // --- EVENT LISTENERS & INTERACTION ---
+        function setupEventListeners() {
+            // Door Knock Button Action
+            document.getElementById('knock-btn').addEventListener('click', enterOfficeSequence);
+
+            // Sound Toggle
+            document.getElementById('sound-toggle').addEventListener('click', () => {
+                audio.muted = !audio.muted;
+                const icon = document.getElementById('sound-icon');
+                icon.className = audio.muted ? 'fa-solid fa-volume-xmark text-red-400' : 'fa-solid fa-volume-high text-slate-300';
+            });
+
+            // 3D Canvas Click Raycasting
+            renderer.domElement.addEventListener('click', onCanvasClick);
+
+            // Reset Camera View Button
+            document.getElementById('reset-cam-btn').addEventListener('click', () => {
+                audio.playClick();
+                resetCamera();
+            });
+
+            // Modal Close Buttons
+            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('modal-action-btn').addEventListener('click', closeModal);
+
+            // Keyboard ESC to Close
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeModal();
+            });
+        }
+
+        function enterOfficeSequence() {
+            audio.playKnock();
+
+            // Hide Entrance Overlay
+            const overlay = document.getElementById('entrance-overlay');
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+
+            // Animate Door Opening
+            gsap.to(doorMesh.parent.rotation, {
+                y: -Math.PI / 1.8,
+                duration: 1.8,
+                ease: 'power2.inOut',
+                onComplete: () => {
+                    // Move Superior/Visitor Inside
+                    gsap.to(visitorMesh.position, {
+                        x: 3.5,
+                        z: 1.5,
+                        duration: 2.5,
+                        ease: 'power1.inOut'
+                    });
+
+                    // Smooth Camera Transition to Overview
+                    tweenCamera(CAMERA_VIEWS.OVERVIEW.pos, CAMERA_VIEWS.OVERVIEW.target, 2.5, () => {
+                        showDialogue(
+                            "Christy (Host)",
+                            "Come in! Welcome to my digital office suite. Feel free to click around my desk, workstation, awards cabinet, or meeting room to explore."
+                        );
+                    });
+                }
+            });
+        }
+
+        function onCanvasClick(event) {
+            // Don't trigger if clicking UI overlays
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactiveObjects, true);
+
+            if (intersects.length > 0) {
+                const clickedObj = intersects[0].object;
+                const zoneKey = clickedObj.userData.zoneKey;
+                if (zoneKey) {
+                    inspectZone(zoneKey);
+                }
+            }
+        }
+
+        function inspectZone(zoneKey) {
+            audio.playClick();
+            activeZone = zoneKey;
+            const data = ZONE_DATA[zoneKey];
+            const targetCam = CAMERA_VIEWS[zoneKey];
+
+            if (!data || !targetCam) return;
+
+            // Turn Host Avatar towards inspected zone
+            if (hostMesh) {
+                gsap.to(hostMesh.rotation, {
+                    y: Math.atan2(targetCam.target.x - hostMesh.position.x, targetCam.target.z - hostMesh.position.z),
+                    duration: 1
+                });
+            }
+
+            // Camera Tweening
+            tweenCamera(targetCam.pos, targetCam.target, 1.8, () => {
+                openModal(data);
+            });
+
+            // Display Live Dialogue
+            showDialogue(data.speaker, data.dialogue);
+        }
+
+        function tweenCamera(targetPos, targetLookAt, duration = 1.5, onComplete = null) {
+            gsap.to(camera.position, {
+                x: targetPos.x,
+                y: targetPos.y,
+                z: targetPos.z,
+                duration: duration,
+                ease: "power2.inOut"
+            });
+
+            gsap.to(controls.target, {
+                x: targetLookAt.x,
+                y: targetLookAt.y,
+                z: targetLookAt.z,
+                duration: duration,
+                ease: "power2.inOut",
+                onUpdate: () => controls.update(),
+                onComplete: onComplete
+            });
+        }
+
+        function resetCamera() {
+            closeModal();
+            tweenCamera(CAMERA_VIEWS.OVERVIEW.pos, CAMERA_VIEWS.OVERVIEW.target, 1.8);
+            showDialogue("Christy (Host)", "Viewing full office overview. Click any area to zoom in.");
+            if (hostMesh) gsap.to(hostMesh.rotation, { y: 0, duration: 1 });
+        }
+
+        // --- DIALOGUE & MODAL SYSTEM ---
+        function showDialogue(speaker, text) {
+            const container = document.getElementById('dialogue-container');
+            const speakerName = document.getElementById('speaker-name');
+            const dialogueText = document.getElementById('dialogue-text');
+
+            speakerName.innerText = speaker;
+            dialogueText.innerText = '';
+            container.classList.remove('opacity-0', 'translate-y-[-10px]');
+
+            // Typewriter Effect with Sound
+            let i = 0;
+            const timer = setInterval(() => {
+                if (i < text.length) {
+                    dialogueText.innerText += text.charAt(i);
+                    if (i % 3 === 0) audio.playTypeSound();
+                    i++;
+                } else {
+                    clearInterval(timer);
+                }
+            }, 20);
+        }
+
+        function openModal(data) {
+            const modal = document.getElementById('info-modal');
+            const contentBox = document.getElementById('modal-content-box');
+
+            document.getElementById('modal-category').innerText = data.category;
+            document.getElementById('modal-title').innerText = data.title;
+            document.getElementById('modal-icon').innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
+            document.getElementById('modal-body').innerHTML = data.content;
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            contentBox.classList.remove('scale-95');
+            contentBox.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('info-modal');
+            const contentBox = document.getElementById('modal-content-box');
+
+            contentBox.classList.remove('scale-100');
+            contentBox.classList.add('scale-95');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- RENDER LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Subtle Idle Floating Animation for Avatars
+            const time = Date.now() * 0.002;
+            if (hostMesh) hostMesh.position.y = Math.sin(time) * 0.02;
+            if (visitorMesh) visitorMesh.position.y = Math.sin(time + 1) * 0.02;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
